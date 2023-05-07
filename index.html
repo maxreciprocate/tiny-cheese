@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tiny-cheese</title>
+  <style>
+   @font-face { font-family: 'body'; src: url('/fonts/IBMPlexSans-Regular.ttf') format('truetype'); }
+   * {
+       -moz-box-sizing: border-box;
+       -webkit-box-sizing: border-box;
+       box-sizing: border-box;
+   }
+   body {
+	   font: 18px/28px body, sans-serif;
+	   text-rendering: optimizeLegibility;
+       margin-right: auto;
+       margin-left: auto;
+       max-width: 40em;
+       padding: 1rem;
+   }
+  </style>
+</head>
+    <body>
+        <div id='content' style='display: none'>
+            <h4>Use the left and right arrow keys to select a better output (spacebar for a tie)</h4>
+            <div>
+                <p id='prompt'></div>
+                <div style='display: flex; flex-direction: row;'>
+                    <div style='flex: 1; border: 1px solid black; border-right-style: none; padding: 1rem;'>
+                        <p id='output0' style='flex: 1; text-align: center;'></p>
+                    </div>
+                    <div style='flex: 1; border: 1px solid black; padding: 1rem;'>
+                        <p id='output1' style='flex: 1; text-align: center;'></div>
+                    </div>
+                    <p id='stats' style='text-align: center;'></p>
+                </div>
+            </div>
+        </div>
+
+	    <script>
+         async function getFeedback() {
+             return new Promise(resolve => document.body.onkeydown = (e) => {
+                 if (e.keyCode === 37) {
+                     resolve(0)
+                     e.preventDefault()
+                 } else if (e.keyCode === 39) {
+                     resolve(1)
+                     e.preventDefault()
+                 } else if (e.keyCode === 32) {
+                     resolve('tie')
+                     e.preventDefault()
+                 }
+             })
+         }
+
+         (async () => {
+             while (true) {
+                 try {
+                     response = await fetch(`${window.location.origin}/get_match`)
+                     const { prompt, outputs, metadata } = await response.json()
+
+                     if (prompt === undefined) {
+                         document.body.innerHTML = '<h3>Thanks for your help!</h3>All samples have been reviewed! 😌'
+                         return
+
+                     } else {
+                         document.getElementById('content').style.display = 'block'
+                     }
+
+                     document.getElementById('prompt').innerText = prompt
+                     document.getElementById('output0').innerText = outputs[0]
+                     document.getElementById('output1').innerText = outputs[1]
+
+                     const winner = await getFeedback()
+                     const result = { prompt, outputs, winner, metadata }
+
+                     await fetch(`${window.location.origin}/submit_result`, {
+                         method: 'post',
+                         body: JSON.stringify(result),
+                         headers: { 'Content-Type': 'application/json' },
+                     })
+
+                     response = await fetch(`${window.location.origin}/get_stats`)
+                     const { accuracy, n_reviewed } = await response.json()
+                     document.getElementById('stats').innerText = `${Math.round(accuracy * 100) / 100} accuracy, ${n_reviewed} samples reviewed`
+                 } catch (e) {
+                     console.log(e)
+                     document.body.innerHTML = '<h3>Thanks for your help!</h3>The server is currently offline 🙂'
+                     return
+                 }
+             }
+         })()
+	    </script>
+    </body>
+</html>
