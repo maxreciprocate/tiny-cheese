@@ -1,5 +1,6 @@
 import os
 import json
+import rich
 import random
 import threading
 import numpy as np
@@ -26,19 +27,24 @@ matches = []
 @api.on_event("startup")
 @api.get("/reset")
 def reset():
+    dataset = os.environ.get("dataset", "Dahoas/rm-static")
+    split = os.environ.get("split", "train")
+    num_matches = int(os.environ.get("num_matches", "10"))
+    columns = os.environ.get("columns", "chosen,rejected").split(",")
+
     global current_ix, matches
     current_ix = 0
     matches = []
-    dataset = load_dataset("Dahoas/rm-static", split="test")
+    dataset = load_dataset(dataset, split=split)
 
-    for ix in range(100):
+    for ix in range(num_matches):
         sample = dataset[ix]
-        outputs = [sample["chosen"], sample["rejected"]]
+        outputs = [sample[columns[0]], sample[columns[1]]]
         random.shuffle(outputs)
         matches.append({
-            "prompt": sample["prompt"],
+            "prompt": sample["prompt"] if "prompt" in sample else "",
             "outputs": outputs,
-            "selected": sample["chosen"],
+            "selected": sample[columns[0]],
             "metadata": {"index": ix},
         })
 
@@ -64,6 +70,8 @@ async def submit_result(request: Request):
     match["metadata"]["duration"] = time() - match["metadata"]["start_time"]
     match["winner"] = result["winner"]
 
+    rich.print(match)
+
     with open("matches.json", "w") as f:
         json.dump(matches, f)
 
@@ -82,5 +90,5 @@ def get_stats():
     accuracy = correct / (n_reviewed + 1e-20)
     return {"accuracy": accuracy, "n_reviewed": n_reviewed}
 
-api.mount("/", StaticFiles(directory=".", html=True), name="static")
+api.mount("/", StaticFiles(directory="static", html=True), name="static")
 
