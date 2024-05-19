@@ -29,7 +29,6 @@ matches = []
 def reset():
     dataset = os.environ.get("dataset", "Dahoas/rm-static")
     split = os.environ.get("split", "train")
-    num_matches = int(os.environ.get("num_matches", "10"))
     columns = os.environ.get("columns", "chosen,rejected").split(",")
 
     global current_ix, matches
@@ -37,7 +36,7 @@ def reset():
     matches = []
     dataset = load_dataset(dataset, split=split)
 
-    for ix in range(num_matches):
+    for ix in range(len(dataset)):
         sample = dataset[ix]
         outputs = [sample[columns[0]], sample[columns[1]]]
         random.shuffle(outputs)
@@ -88,7 +87,8 @@ def get_stats():
         n_reviewed += 1
 
     accuracy = correct / (n_reviewed + 1e-20)
-    return {"accuracy": accuracy, "n_reviewed": n_reviewed}
+    return {"accuracy": accuracy, "n_reviewed": n_reviewed, "n_total": len(matches)}
 
-api.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+api.mount("/", StaticFiles(directory=".", html=True), name="static")
 
